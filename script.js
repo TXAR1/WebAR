@@ -11,6 +11,9 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.xr.enabled = true;
 document.body.appendChild(renderer.domElement);
 
+// AR-Button von Three.js hinzufügen
+document.body.appendChild(XRButton.createButton(renderer));
+
 // Licht hinzufügen
 const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
 scene.add(light);
@@ -30,19 +33,4 @@ function animate() {
     });
 }
 
-// AR starten, wenn möglich
-document.getElementById("arButton").addEventListener("click", async () => {
-    if (navigator.xr) {
-        try {
-            const session = await navigator.xr.requestSession("immersive-ar", { requiredFeatures: ["local-floor"] });
-            renderer.xr.setSession(session);
-            animate();
-        } catch (error) {
-            console.error("AR-Fehler:", error);
-            alert("AR kann nicht gestartet werden.");
-        }
-    } else {
-        alert("WebXR wird nicht unterstützt!");
-    }
-});
-
+animate(); // Animation schon vor dem Start laufen lassen
