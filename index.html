@@ -1,17 +1,174 @@
 <!DOCTYPE html>
-<html lang="de">
+<html>
 <head>
-    <meta charset="UTF-8">
+    <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebAR App</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@webxr-polyfill@latest/build/webxr-polyfill.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/webxr/XRButton.js"></script>
+    <title>AR 3D-Modell Viewer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/aframe/1.3.0/aframe.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ar.js/2.2.2/aframe-ar.min.js"></script>
     <style>
-        body { margin: 0; overflow: hidden; }
+        .buttons {
+            position: absolute;
+            bottom: 20px;
+            left: 0;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            z-index: 10;
+        }
+        .btn {
+            margin: 0 10px;
+            padding: 12px 20px;
+            background-color: rgba(0, 0, 0, 0.5);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        .fileupload {
+            position: absolute;
+            top: 20px;
+            left: 0;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            z-index: 10;
+        }
+        #upload-form {
+            background-color: rgba(0, 0, 0, 0.5);
+            padding: 10px;
+            border-radius: 5px;
+            color: white;
+        }
+        .instructions {
+            position: absolute;
+            top: 80px;
+            left: 0;
+            width: 100%;
+            text-align: center;
+            color: white;
+            background-color: rgba(0, 0, 0, 0.5);
+            padding: 10px;
+            z-index: 10;
+        }
     </style>
 </head>
-<body>
-    <script src="script.js"></script>
+<body style="margin: 0; overflow: hidden;">
+    <div class="fileupload">
+        <div id="upload-form">
+            <input type="file" id="file-input" accept=".glb, .gltf">
+            <button id="load-model-btn">Modell laden</button>
+        </div>
+    </div>
+    
+    <div class="instructions">
+        Richten Sie Ihre Kamera auf eine ebene Fläche und tippen Sie, um das Modell zu platzieren
+    </div>
+
+    <a-scene embedded arjs="trackingMethod: best; sourceType: webcam; debugUIEnabled: false;" 
+             renderer="logarithmicDepthBuffer: true;" vr-mode-ui="enabled: false">
+        
+        <a-entity id="model-container"></a-entity>
+        
+        <a-marker type="pattern" preset="hiro" id="marker">
+            <a-entity id="model-on-marker" position="0 0 0" scale="1 1 1"></a-entity>
+        </a-marker>
+        
+        <a-entity camera></a-entity>
+    </a-scene>
+    
+    <div class="buttons">
+        <button class="btn" id="place-btn">Platzieren</button>
+        <button class="btn" id="scale-up-btn">Größer</button>
+        <button class="btn" id="scale-down-btn">Kleiner</button>
+        <button class="btn" id="rotate-btn">Drehen</button>
+    </div>
+
+    <script>
+        let currentModel = null;
+        let placedModel = null;
+        let isMarkerMode = true;
+        let modelScale = 1.0;
+        let modelRotation = 0;
+        
+        const modelContainer = document.getElementById('model-container');
+        const modelOnMarker = document.getElementById('model-on-marker');
+        
+        // Modell aus Datei laden
+        document.getElementById('load-model-btn').addEventListener('click', function() {
+            const fileInput = document.getElementById('file-input');
+            const file = fileInput.files[0];
+            
+            if (file) {
+                const objectURL = URL.createObjectURL(file);
+                
+                // Altes Modell entfernen falls vorhanden
+                if (currentModel) {
+                    modelOnMarker.removeChild(currentModel);
+                }
+                
+                // Neues Modell erstellen
+                currentModel = document.createElement('a-entity');
+                currentModel.setAttribute('gltf-model', objectURL);
+                currentModel.setAttribute('scale', '0.5 0.5 0.5');
+                currentModel.setAttribute('rotation', '0 0 0');
+                modelOnMarker.appendChild(currentModel);
+                
+                alert('Modell geladen! Suchen Sie den Hiro-Marker oder drücken Sie "Platzieren", um das Modell direkt zu platzieren.');
+            } else {
+                alert('Bitte wählen Sie eine 3D-Modelldatei aus (.glb oder .gltf)');
+            }
+        });
+        
+        // Modell im Raum platzieren
+        document.getElementById('place-btn').addEventListener('click', function() {
+            if (!currentModel) {
+                alert('Bitte laden Sie zuerst ein Modell!');
+                return;
+            }
+            
+            // Kopie des aktuellen Modells erstellen
+            const currentPosition = { x: 0, y: -1, z: -3 }; // Standard-Position vor der Kamera
+            
+            if (placedModel) {
+                modelContainer.removeChild(placedModel);
+            }
+            
+            placedModel = currentModel.cloneNode(true);
+            placedModel.setAttribute('position', `${currentPosition.x} ${currentPosition.y} ${currentPosition.z}`);
+            placedModel.setAttribute('scale', `${modelScale} ${modelScale} ${modelScale}`);
+            placedModel.setAttribute('rotation', `0 ${modelRotation} 0`);
+            modelContainer.appendChild(placedModel);
+            
+            isMarkerMode = false;
+            
+            alert('Modell platziert! Verwenden Sie die Buttons, um es anzupassen.');
+        });
+        
+        // Modell größer machen
+        document.getElementById('scale-up-btn').addEventListener('click', function() {
+            if (placedModel) {
+                modelScale += 0.1;
+                placedModel.setAttribute('scale', `${modelScale} ${modelScale} ${modelScale}`);
+            }
+        });
+        
+        // Modell kleiner machen
+        document.getElementById('scale-down-btn').addEventListener('click', function() {
+            if (placedModel && modelScale > 0.2) {
+                modelScale -= 0.1;
+                placedModel.setAttribute('scale', `${modelScale} ${modelScale} ${modelScale}`);
+            }
+        });
+        
+        // Modell drehen
+        document.getElementById('rotate-btn').addEventListener('click', function() {
+            if (placedModel) {
+                modelRotation += 45;
+                if (modelRotation >= 360) modelRotation = 0;
+                placedModel.setAttribute('rotation', `0 ${modelRotation} 0`);
+            }
+        });
+    </script>
 </body>
 </html>
