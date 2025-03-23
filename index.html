@@ -3,235 +3,173 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AR 3D-Modell Viewer</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/aframe/1.3.0/aframe.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/ar.js/2.2.2/aframe-ar.min.js"></script>
+    <title>Einfacher AR 3D-Modell Viewer</title>
+    <!-- Ältere, stabilere Version von A-Frame und AR.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/aframe/1.0.4/aframe.min.js"></script>
+    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
     <style>
-        .buttons {
+        .ui-container {
             position: absolute;
             bottom: 20px;
             left: 0;
             width: 100%;
+            z-index: 1000;
             display: flex;
-            justify-content: center;
-            z-index: 10;
+            flex-direction: column;
+            align-items: center;
+        }
+        .file-container {
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            color: white;
+        }
+        .button-container {
+            display: flex;
+            gap: 10px;
         }
         .btn {
-            margin: 0 10px;
-            padding: 12px 20px;
-            background-color: rgba(0, 0, 0, 0.5);
+            padding: 10px 15px;
+            background-color: rgba(0, 0, 0, 0.7);
             color: white;
             border: none;
             border-radius: 5px;
-            font-size: 16px;
         }
-        .fileupload {
+        #status-message {
             position: absolute;
             top: 20px;
             left: 0;
             width: 100%;
-            display: flex;
-            justify-content: center;
-            z-index: 10;
-        }
-        #upload-form {
-            background-color: rgba(0, 0, 0, 0.5);
-            padding: 10px;
-            border-radius: 5px;
-            color: white;
-        }
-        .instructions {
-            position: absolute;
-            top: 80px;
-            left: 0;
-            width: 100%;
             text-align: center;
             color: white;
-            background-color: rgba(0, 0, 0, 0.5);
+            background-color: rgba(0, 0, 0, 0.7);
             padding: 10px;
-            z-index: 10;
-        }
-        #camera-permission {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.8);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
             z-index: 1000;
-            color: white;
-            text-align: center;
-        }
-        #camera-btn {
-            margin-top: 20px;
-            padding: 12px 24px;
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            font-size: 18px;
-            cursor: pointer;
         }
     </style>
 </head>
 <body style="margin: 0; overflow: hidden;">
-    <!-- Kamera-Erlaubnis Dialog -->
-    <div id="camera-permission">
-        <h2>AR 3D-Modell Viewer</h2>
-        <p>Diese Anwendung benötigt Zugriff auf Ihre Kamera für die AR-Funktionalität.</p>
-        <button id="camera-btn">Kamerazugriff erlauben</button>
-    </div>
-
-    <div class="fileupload">
-        <div id="upload-form">
-            <input type="file" id="file-input" accept=".glb, .gltf">
-            <button id="load-model-btn">Modell laden</button>
-        </div>
-    </div>
+    <!-- Status-Nachricht -->
+    <div id="status-message">Kamera wird initialisiert...</div>
     
-    <div class="instructions">
-        Richten Sie Ihre Kamera auf eine ebene Fläche und tippen Sie, um das Modell zu platzieren
-    </div>
-
-    <a-scene embedded arjs="trackingMethod: best; sourceType: webcam; debugUIEnabled: false;" 
-             renderer="logarithmicDepthBuffer: true;" vr-mode-ui="enabled: false">
+    <!-- AR.js Szene - Markerless Modus -->
+    <a-scene
+        vr-mode-ui="enabled: false"
+        embedded
+        arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;">
         
-        <a-entity id="model-container"></a-entity>
+        <!-- 3D-Modell-Container -->
+        <a-entity id="model-entity" position="0 0 -1" rotation="0 0 0" scale="0.5 0.5 0.5"></a-entity>
         
-        <a-marker type="pattern" preset="hiro" id="marker">
-            <a-entity id="model-on-marker" position="0 0 0" scale="1 1 1"></a-entity>
-        </a-marker>
-        
+        <!-- Kamera mit Cursor für Interaktion -->
         <a-entity camera></a-entity>
     </a-scene>
     
-    <div class="buttons">
-        <button class="btn" id="place-btn">Platzieren</button>
-        <button class="btn" id="scale-up-btn">Größer</button>
-        <button class="btn" id="scale-down-btn">Kleiner</button>
-        <button class="btn" id="rotate-btn">Drehen</button>
+    <!-- UI-Elemente -->
+    <div class="ui-container">
+        <div class="file-container">
+            <input type="file" id="file-input" accept=".glb, .gltf">
+            <button id="load-button">Modell laden</button>
+        </div>
+        <div class="button-container">
+            <button class="btn" id="scale-up-btn">Größer</button>
+            <button class="btn" id="scale-down-btn">Kleiner</button>
+            <button class="btn" id="rotate-btn">Drehen</button>
+        </div>
     </div>
-
+    
     <script>
-        let currentModel = null;
-        let placedModel = null;
-        let isMarkerMode = true;
-        let modelScale = 1.0;
-        let modelRotation = 0;
+        // Variablen
+        let modelScale = 0.5;
+        let modelRotationY = 0;
+        const modelEntity = document.getElementById('model-entity');
+        const statusMessage = document.getElementById('status-message');
         
-        const modelContainer = document.getElementById('model-container');
-        const modelOnMarker = document.getElementById('model-on-marker');
-        const cameraPermission = document.getElementById('camera-permission');
-        const cameraBtn = document.getElementById('camera-btn');
-        const aScene = document.querySelector('a-scene');
-        
-        // AR-Szene anfangs ausblenden
-        aScene.style.display = 'none';
-        
-        // Explizite Kamera-Erlaubnis
-        cameraBtn.addEventListener('click', function() {
-            // Kamera explizit anfordern
-            navigator.mediaDevices.getUserMedia({ video: true })
-                .then(function(stream) {
-                    // Kamera erfolgreich zugegriffen
-                    stream.getTracks().forEach(track => track.stop()); // Kamera wieder freigeben für AR.js
-                    
-                    // Dialog ausblenden und AR-Szene anzeigen
-                    cameraPermission.style.display = 'none';
-                    aScene.style.display = 'block';
-                    
-                    // Prüfen ob Video autoplay funktioniert
-                    setTimeout(function() {
-                        const video = document.querySelector('video');
-                        if (video && video.paused) {
-                            video.play();
-                        }
-                    }, 1000);
-                })
-                .catch(function(error) {
-                    // Fehler beim Kamerazugriff
-                    alert('Kamerazugriff fehlgeschlagen: ' + error.message + '\nBitte erteilen Sie die Berechtigung in Ihren Browsereinstellungen.');
+        // Überprüfen, ob die Kamera funktioniert
+        document.addEventListener('DOMContentLoaded', function() {
+            const video = document.querySelector('video');
+            
+            // Statusnachricht aktualisieren, um Benutzer zu informieren
+            if (video) {
+                video.addEventListener('play', function() {
+                    statusMessage.textContent = "Kamera aktiv - bewegen Sie Ihr Gerät langsam, um die Umgebung zu scannen";
+                    setTimeout(() => {
+                        statusMessage.textContent = "Laden Sie ein 3D-Modell über den Button unten";
+                    }, 5000);
                 });
+                
+                // Fehlerbehandlung
+                video.addEventListener('error', function() {
+                    statusMessage.textContent = "Kamerafehler aufgetreten";
+                });
+            } else {
+                setTimeout(() => {
+                    const videoCheck = document.querySelector('video');
+                    if (videoCheck) {
+                        statusMessage.textContent = "Kamera initialisiert - Laden Sie ein 3D-Modell";
+                    } else {
+                        statusMessage.textContent = "Kamera konnte nicht initialisiert werden";
+                    }
+                }, 3000);
+            }
         });
         
-        // Modell aus Datei laden
-        document.getElementById('load-model-btn').addEventListener('click', function() {
+        // Modell laden
+        document.getElementById('load-button').addEventListener('click', function() {
             const fileInput = document.getElementById('file-input');
             const file = fileInput.files[0];
             
             if (file) {
                 const objectURL = URL.createObjectURL(file);
                 
-                // Altes Modell entfernen falls vorhanden
-                if (currentModel) {
-                    modelOnMarker.removeChild(currentModel);
+                // Vorhandenes Modell entfernen
+                while (modelEntity.firstChild) {
+                    modelEntity.removeChild(modelEntity.firstChild);
                 }
                 
-                // Neues Modell erstellen
-                currentModel = document.createElement('a-entity');
-                currentModel.setAttribute('gltf-model', objectURL);
-                currentModel.setAttribute('scale', '0.5 0.5 0.5');
-                currentModel.setAttribute('rotation', '0 0 0');
-                modelOnMarker.appendChild(currentModel);
+                // Neues Modell hinzufügen
+                statusMessage.textContent = "Modell wird geladen...";
                 
-                alert('Modell geladen! Suchen Sie den Hiro-Marker oder drücken Sie "Platzieren", um das Modell direkt zu platzieren.');
+                const newModel = document.createElement('a-entity');
+                newModel.setAttribute('gltf-model', objectURL);
+                modelEntity.appendChild(newModel);
+                
+                // Laden-Event
+                newModel.addEventListener('model-loaded', function() {
+                    statusMessage.textContent = "Modell geladen! Verwenden Sie die Buttons zum Anpassen.";
+                    setTimeout(() => {
+                        statusMessage.textContent = "";
+                    }, 3000);
+                });
+                
+                // Fehler-Event
+                newModel.addEventListener('model-error', function() {
+                    statusMessage.textContent = "Fehler beim Laden des Modells!";
+                });
             } else {
-                alert('Bitte wählen Sie eine 3D-Modelldatei aus (.glb oder .gltf)');
+                statusMessage.textContent = "Bitte wählen Sie eine 3D-Modelldatei aus";
             }
         });
         
-        // Modell im Raum platzieren
-        document.getElementById('place-btn').addEventListener('click', function() {
-            if (!currentModel) {
-                alert('Bitte laden Sie zuerst ein Modell!');
-                return;
-            }
-            
-            // Kopie des aktuellen Modells erstellen
-            const currentPosition = { x: 0, y: -1, z: -3 }; // Standard-Position vor der Kamera
-            
-            if (placedModel) {
-                modelContainer.removeChild(placedModel);
-            }
-            
-            placedModel = currentModel.cloneNode(true);
-            placedModel.setAttribute('position', `${currentPosition.x} ${currentPosition.y} ${currentPosition.z}`);
-            placedModel.setAttribute('scale', `${modelScale} ${modelScale} ${modelScale}`);
-            placedModel.setAttribute('rotation', `0 ${modelRotation} 0`);
-            modelContainer.appendChild(placedModel);
-            
-            isMarkerMode = false;
-            
-            alert('Modell platziert! Verwenden Sie die Buttons, um es anzupassen.');
-        });
-        
-        // Modell größer machen
+        // Größer machen
         document.getElementById('scale-up-btn').addEventListener('click', function() {
-            if (placedModel) {
-                modelScale += 0.1;
-                placedModel.setAttribute('scale', `${modelScale} ${modelScale} ${modelScale}`);
-            }
+            modelScale += 0.1;
+            modelEntity.setAttribute('scale', `${modelScale} ${modelScale} ${modelScale}`);
         });
         
-        // Modell kleiner machen
+        // Kleiner machen
         document.getElementById('scale-down-btn').addEventListener('click', function() {
-            if (placedModel && modelScale > 0.2) {
+            if (modelScale > 0.1) {
                 modelScale -= 0.1;
-                placedModel.setAttribute('scale', `${modelScale} ${modelScale} ${modelScale}`);
+                modelEntity.setAttribute('scale', `${modelScale} ${modelScale} ${modelScale}`);
             }
         });
         
-        // Modell drehen
+        // Drehen
         document.getElementById('rotate-btn').addEventListener('click', function() {
-            if (placedModel) {
-                modelRotation += 45;
-                if (modelRotation >= 360) modelRotation = 0;
-                placedModel.setAttribute('rotation', `0 ${modelRotation} 0`);
-            }
+            modelRotationY += 45;
+            modelEntity.setAttribute('rotation', `0 ${modelRotationY} 0`);
         });
     </script>
 </body>
