@@ -1,52 +1,42 @@
-// WebXR Polyfill für bessere Kompatibilität
+console.log("Script geladen!");
+
+// WebXR Polyfill für bessere Unterstützung
 const polyfill = new WebXRPolyfill();
 
-let scene, camera, renderer, controller;
+// Szene, Kamera, Renderer erstellen
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
 
-function init() {
-    // Szene erstellen
-    scene = new THREE.Scene();
+// Würfel als Testobjekt hinzufügen
+const geometry = new THREE.BoxGeometry();
+const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+const cube = new THREE.Mesh(geometry, material);
+scene.add(cube);
+camera.position.z = 2;
 
-    // Kamera hinzufügen
-    camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 20);
-    scene.add(camera);
-
-    // Renderer für WebXR
-    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.xr.enabled = true;
-    document.body.appendChild(renderer.domElement);
-
-    // AR-Button hinzufügen
-    document.body.appendChild(ARButton.createButton(renderer));
-
-    // AR-Controller für Interaktionen
-    controller = renderer.xr.getController(0);
-    controller.addEventListener('select', onSelect);
-    scene.add(controller);
-
-    // Lichtquelle hinzufügen
-    const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
-    scene.add(light);
-}
-
-function onSelect() {
-    // Einfache 3D-Form (Würfel) in die Szene einfügen
-    const geometry = new THREE.BoxGeometry(0.2, 0.2, 0.2);
-    const material = new THREE.MeshStandardMaterial({ color: Math.random() * 0xffffff });
-    const cube = new THREE.Mesh(geometry, material);
-
-    // Position des Controllers übernehmen
-    cube.position.setFromMatrixPosition(controller.matrixWorld);
-    scene.add(cube);
-}
-
+// Animationsloop
 function animate() {
-    renderer.setAnimationLoop(() => {
-        renderer.render(scene, camera);
-    });
+    requestAnimationFrame(animate);
+    cube.rotation.x += 0.01;
+    cube.rotation.y += 0.01;
+    renderer.render(scene, camera);
 }
-
-// Startet die Anwendung
-init();
 animate();
+
+// AR starten, wenn möglich
+document.getElementById("arButton").addEventListener("click", async () => {
+    if (navigator.xr) {
+        try {
+            const session = await navigator.xr.requestSession("immersive-ar", { requiredFeatures: ["local-floor"] });
+            renderer.xr.enabled = true;
+            renderer.xr.setSession(session);
+        } catch (error) {
+            console.error("AR-Fehler:", error);
+        }
+    } else {
+        alert("WebXR wird nicht unterstützt!");
+    }
+});
