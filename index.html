@@ -51,9 +51,41 @@
             padding: 10px;
             z-index: 10;
         }
+        #camera-permission {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            color: white;
+            text-align: center;
+        }
+        #camera-btn {
+            margin-top: 20px;
+            padding: 12px 24px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 18px;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body style="margin: 0; overflow: hidden;">
+    <!-- Kamera-Erlaubnis Dialog -->
+    <div id="camera-permission">
+        <h2>AR 3D-Modell Viewer</h2>
+        <p>Diese Anwendung benötigt Zugriff auf Ihre Kamera für die AR-Funktionalität.</p>
+        <button id="camera-btn">Kamerazugriff erlauben</button>
+    </div>
+
     <div class="fileupload">
         <div id="upload-form">
             <input type="file" id="file-input" accept=".glb, .gltf">
@@ -93,6 +125,38 @@
         
         const modelContainer = document.getElementById('model-container');
         const modelOnMarker = document.getElementById('model-on-marker');
+        const cameraPermission = document.getElementById('camera-permission');
+        const cameraBtn = document.getElementById('camera-btn');
+        const aScene = document.querySelector('a-scene');
+        
+        // AR-Szene anfangs ausblenden
+        aScene.style.display = 'none';
+        
+        // Explizite Kamera-Erlaubnis
+        cameraBtn.addEventListener('click', function() {
+            // Kamera explizit anfordern
+            navigator.mediaDevices.getUserMedia({ video: true })
+                .then(function(stream) {
+                    // Kamera erfolgreich zugegriffen
+                    stream.getTracks().forEach(track => track.stop()); // Kamera wieder freigeben für AR.js
+                    
+                    // Dialog ausblenden und AR-Szene anzeigen
+                    cameraPermission.style.display = 'none';
+                    aScene.style.display = 'block';
+                    
+                    // Prüfen ob Video autoplay funktioniert
+                    setTimeout(function() {
+                        const video = document.querySelector('video');
+                        if (video && video.paused) {
+                            video.play();
+                        }
+                    }, 1000);
+                })
+                .catch(function(error) {
+                    // Fehler beim Kamerazugriff
+                    alert('Kamerazugriff fehlgeschlagen: ' + error.message + '\nBitte erteilen Sie die Berechtigung in Ihren Browsereinstellungen.');
+                });
+        });
         
         // Modell aus Datei laden
         document.getElementById('load-model-btn').addEventListener('click', function() {
