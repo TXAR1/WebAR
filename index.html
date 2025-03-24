@@ -32,22 +32,12 @@
             border-radius: 8px;
             overflow: hidden;
             margin-bottom: 20px;
-            position: relative;
         }
         
         model-viewer {
             width: 100%;
             height: 100%;
             background-color: #e0e0e0;
-        }
-        
-        .loading {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            text-align: center;
-            color: #333;
         }
         
         .controls {
@@ -85,11 +75,6 @@
             background-color: #3367d6;
         }
         
-        button:disabled {
-            background-color: #cccccc;
-            cursor: not-allowed;
-        }
-        
         #info-message {
             padding: 10px;
             background-color: #fafafa;
@@ -103,11 +88,10 @@
     <div class="container">
         <div class="header">
             <h1>3D AR Model Viewer</h1>
-            <p>Vorgeladenes 3D-Modell aus Google Drive</p>
+            <p>Laden Sie Ihre GLB/GLTF 3D-Modelle und betrachten Sie sie in AR</p>
         </div>
         
         <div class="model-container">
-            <div id="loading" class="loading">Lade 3D-Modell...</div>
             <!-- Model-Viewer Komponente -->
             <model-viewer 
                 id="model-viewer"
@@ -125,12 +109,12 @@
         <div class="controls">
             <div class="file-upload">
                 <input type="file" id="file-input" accept=".glb,.gltf">
-                <button id="load-model">Anderes Modell laden</button>
-                <div id="info-message">Lade Standardmodell. Bitte haben Sie einen Moment Geduld...</div>
+                <button id="load-model">Modell laden</button>
+                <div id="info-message">Wählen Sie eine GLB oder GLTF Datei aus und klicken Sie auf "Modell laden"</div>
             </div>
             
             <div class="buttons">
-                <button id="ar-button" disabled>In AR anzeigen</button>
+                <button id="ar-button">In AR anzeigen</button>
                 <button id="rotate-toggle">Drehung ein/aus</button>
                 <button id="reset-camera">Kamera zurücksetzen</button>
             </div>
@@ -146,64 +130,12 @@
             const rotateToggleButton = document.getElementById('rotate-toggle');
             const resetCameraButton = document.getElementById('reset-camera');
             const infoMessage = document.getElementById('info-message');
-            const loading = document.getElementById('loading');
             
             let isAutoRotateEnabled = true;
             
-            // Hier Ihre Google Drive File ID eintragen
-            const googleDriveFileId = 1_ECylCTdArUYuJcBjXoAjLiHQGeeuwni;
-            
-            // Google Drive mit Workaround laden
-            function loadModelFromGoogleDrive() {
-                // URL für das Google Drive Dokument - spezielle URL für den Download
-                const driveUrl = `https://drive.google.com/uc?export=download&id=${googleDriveFileId}`;
-                
-                // Temporäre Blob-URL für das Modell erstellen
-                fetch(driveUrl)
-                    .then(response => {
-                        if (!response.ok) {
-                            throw new Error('Netzwerkantwort war nicht OK');
-                        }
-                        return response.blob();
-                    })
-                    .then(blob => {
-                        const objectURL = URL.createObjectURL(blob);
-                        modelViewer.src = objectURL;
-                        infoMessage.textContent = 'Modell erfolgreich geladen!';
-                        infoMessage.style.color = 'green';
-                        loading.style.display = 'none';
-                        arButton.disabled = false;
-                    })
-                    .catch(error => {
-                        // Alternative Methode probieren, wenn der erste Versuch fehlschlägt
-                        tryAlternativeMethod();
-                    });
-            }
-            
-            // Alternative Methode für den Fall, dass die erste fehlschlägt
-            function tryAlternativeMethod() {
-                // Direkte Einbindung mit Cache-Buster für bessere Kompatibilität
-                const cacheBuster = Date.now();
-                const directUrl = `https://drive.google.com/uc?export=view&id=${googleDriveFileId}&cb=${cacheBuster}`;
-                
-                // Mit dem Model-Viewer direkt laden
-                modelViewer.src = directUrl;
-                
-                // Erfolg überwachen
-                modelViewer.addEventListener('load', () => {
-                    infoMessage.textContent = 'Modell erfolgreich geladen!';
-                    infoMessage.style.color = 'green';
-                    loading.style.display = 'none';
-                    arButton.disabled = false;
-                });
-                
-                // Fehler abfangen
-                modelViewer.addEventListener('error', () => {
-                    infoMessage.textContent = 'Fehler beim Laden des Modells. Bitte lokale Datei nutzen.';
-                    infoMessage.style.color = 'red';
-                    loading.style.display = 'none';
-                });
-            }
+            // Beispiel-Modell laden (Standardmäßig angezeigt, falls der Benutzer keins hochlädt)
+            // Sie können diesen Link auf ein anderes Standard-Modell ändern oder entfernen
+            //modelViewer.src = "https://modelviewer.dev/shared-assets/models/Astronaut.glb";
             
             // Event-Listener für AR-Check
             modelViewer.addEventListener('ar-status', (event) => {
@@ -213,15 +145,17 @@
                 }
             });
             
-            // Modell laden über Datei-Upload
+            // Modell laden
             loadModelButton.addEventListener('click', function() {
                 const file = fileInput.files[0];
                 
                 if (file) {
                     const objectURL = URL.createObjectURL(file);
                     modelViewer.src = objectURL;
-                    infoMessage.textContent = 'Neues Modell geladen!';
+                    infoMessage.textContent = 'Modell geladen! Verwenden Sie die Buttons unten für weitere Optionen.';
                     infoMessage.style.color = 'green';
+                    
+                    // AR-Button aktivieren
                     arButton.disabled = false;
                 } else {
                     infoMessage.textContent = 'Bitte wählen Sie eine 3D-Modelldatei aus (.glb oder .gltf)';
@@ -259,10 +193,8 @@
                 arButton.textContent = 'AR nicht verfügbar';
                 infoMessage.textContent = 'AR ist auf diesem Gerät oder Browser nicht verfügbar.';
             }
-            
-            // Modell beim Laden der Seite laden
-            loadModelFromGoogleDrive();
         });
     </script>
 </body>
+</html>
 </html>
