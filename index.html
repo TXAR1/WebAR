@@ -1,30 +1,33 @@
-<!DOCTYPE html>
+<<!DOCTYPE html>
 <html lang="de">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D AR Model Viewer</title>
-    <!-- Model-Viewer Bibliothek importieren -->
+    <title>3D AR Model Viewer mit QR-Code</title>
+    <!-- Model-Viewer Bibliothek -->
     <script type="module" src="https://cdnjs.cloudflare.com/ajax/libs/model-viewer/3.3.0/model-viewer.min.js"></script>
+    <!-- qrcodejs Bibliothek -->
+    <script src="https://cdn.rawgit.com/davidshimjs/qrcodejs/gh-pages/qrcode.min.js"></script>
     <style>
+        /* (Dein CSS bleibt größtenteils unverändert) */
         body {
             margin: 0;
             padding: 0;
             font-family: Arial, sans-serif;
             background-color: #f0f0f0;
         }
-        
+
         .container {
             max-width: 800px;
             margin: 0 auto;
             padding: 20px;
         }
-        
+
         .header {
             text-align: center;
             margin-bottom: 20px;
         }
-        
+
         .model-container {
             width: 100%;
             height: 500px;
@@ -33,34 +36,26 @@
             overflow: hidden;
             margin-bottom: 20px;
         }
-        
+
         model-viewer {
             width: 100%;
             height: 100%;
             background-color: #e0e0e0;
         }
-        
+
         .controls {
             display: flex;
             flex-direction: column;
             gap: 10px;
         }
-        
-        .file-upload {
-            margin-bottom: 10px;
-            padding: 15px;
-            background-color: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        }
-        
+
         .buttons {
             display: flex;
             gap: 10px;
             justify-content: center;
             flex-wrap: wrap;
         }
-        
+
         button {
             padding: 12px 20px;
             background-color: #4285F4;
@@ -70,11 +65,11 @@
             cursor: pointer;
             font-weight: bold;
         }
-        
+
         button:hover {
             background-color: #3367d6;
         }
-        
+
         #info-message {
             padding: 10px;
             background-color: #fafafa;
@@ -82,19 +77,67 @@
             margin-top: 10px;
             text-align: center;
         }
+
+        .model-selection {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        .model-button {
+            padding: 10px 15px;
+            background-color: #34A853;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .model-button:hover {
+            background-color: #2E8B57;
+        }
+
+        .model-button.active {
+            background-color: #1E5631;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.3);
+        }
+
+        #qrcode {
+            margin-top: 20px;
+            text-align: center;
+        }
+        #qrcode img {
+            max-width: 200px; /* Begrenze die Größe des QR-Codes */
+            height: auto;
+        }
+
+        .qr-button-container{
+            text-align: center;
+        }
+
+
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>3D AR Model Viewer</h1>
-            <p>Laden Sie Ihre GLB/GLTF 3D-Modelle und betrachten Sie sie in AR</p>
+            <h1>3D AR Model Viewer mit QR-Code</h1>
+            <p>Mein eigenes 3D-Modell in AR anzeigen</p>
         </div>
-        
+
+        <div class="model-selection">
+            <button class="model-button active" data-model="mein-modell">Mein Modell</button>
+            <button class="model-button" data-model="astronaut">Astronaut</button>
+            <button class="model-button" data-model="chair">Stuhl</button>
+        </div>
+
         <div class="model-container">
-            <!-- Model-Viewer Komponente -->
-            <model-viewer 
+            <model-viewer
                 id="model-viewer"
+                src="models/mein-modell.glb"
                 camera-controls
                 auto-rotate
                 ar
@@ -102,92 +145,142 @@
                 shadow-intensity="1"
                 shadow-softness="1"
                 exposure="1"
-                alt="3D Modell">
+                alt="Mein 3D Modell">
             </model-viewer>
         </div>
-        
+
         <div class="controls">
-            <div class="file-upload">
-                <input type="file" id="file-input" accept=".glb,.gltf">
-                <button id="load-model">Modell laden</button>
-                <div id="info-message">Wählen Sie eine GLB oder GLTF Datei aus und klicken Sie auf "Modell laden"</div>
-            </div>
-            
             <div class="buttons">
                 <button id="ar-button">In AR anzeigen</button>
-                <button id="rotate-toggle">Drehung ein/aus</button>
+                <button id="rotate-toggle">Drehung aus</button>
                 <button id="reset-camera">Kamera zurücksetzen</button>
             </div>
+             <div class="qr-button-container">
+                <button id="generate-qr">QR-Code generieren</button>
+            </div>
+            <div id="info-message"></div>
+             <div id="qrcode"></div>
         </div>
     </div>
-    
+
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const modelViewer = document.getElementById('model-viewer');
-            const fileInput = document.getElementById('file-input');
-            const loadModelButton = document.getElementById('load-model');
             const arButton = document.getElementById('ar-button');
             const rotateToggleButton = document.getElementById('rotate-toggle');
             const resetCameraButton = document.getElementById('reset-camera');
             const infoMessage = document.getElementById('info-message');
-            
+            const modelButtons = document.querySelectorAll('.model-button');
+            const generateQRButton = document.getElementById('generate-qr');
+            const qrCodeDiv = document.getElementById('qrcode');
+
             let isAutoRotateEnabled = true;
-            
-            // Beispiel-Modell laden (Standardmäßig angezeigt, falls der Benutzer keins hochlädt)
-            // Sie können diesen Link auf ein anderes Standard-Modell ändern oder entfernen
-            //modelViewer.src = "https://modelviewer.dev/shared-assets/models/Astronaut.glb";
-            
-            // Event-Listener für AR-Check
+            let qrCode = null; //  für das QRCode-Objekt
+
+            // Vorgeladene Modelle
+            const preloadedModels = {
+                "mein-modell": "models/mein-modell.glb",
+                "astronaut": "https://modelviewer.dev/shared-assets/models/Astronaut.glb",
+                "chair": "https://modelviewer.dev/shared-assets/models/chair.glb"
+            };
+
+            // AR-Status Check
             modelViewer.addEventListener('ar-status', (event) => {
                 if (event.detail.status === 'failed') {
-                    infoMessage.textContent = 'AR nicht verfügbar auf diesem Gerät oder Browser.';
+                    infoMessage.textContent = 'AR nicht verfügbar.';
                     infoMessage.style.color = 'red';
                 }
             });
-            
-            // Modell laden
-            loadModelButton.addEventListener('click', function() {
-                const file = fileInput.files[0];
-                
-                if (file) {
-                    const objectURL = URL.createObjectURL(file);
-                    modelViewer.src = objectURL;
-                    infoMessage.textContent = 'Modell geladen! Verwenden Sie die Buttons unten für weitere Optionen.';
-                    infoMessage.style.color = 'green';
-                    
-                    // AR-Button aktivieren
-                    arButton.disabled = false;
-                } else {
-                    infoMessage.textContent = 'Bitte wählen Sie eine 3D-Modelldatei aus (.glb oder .gltf)';
-                    infoMessage.style.color = 'red';
-                }
+
+           // Modell-Button Event-Listener
+            modelButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const modelType = this.getAttribute('data-model');
+                    modelButtons.forEach(btn => btn.classList.remove('active'));
+                    this.classList.add('active');
+
+                    if (preloadedModels[modelType]) {
+                        modelViewer.src = preloadedModels[modelType];
+                        infoMessage.textContent = `${modelType.charAt(0).toUpperCase() + modelType.slice(1)}-Modell geladen!`;
+                        infoMessage.style.color = 'green';
+                        // QR-Code nach Modellwechsel löschen
+                        clearQRCode();
+                    }
+                });
             });
-            
+
             // AR-Button
             arButton.addEventListener('click', function() {
                 if (modelViewer.src) {
-                    // activateAR ist eine spezielle Methode von model-viewer
                     modelViewer.activateAR();
                 } else {
                     infoMessage.textContent = 'Bitte laden Sie zuerst ein Modell.';
                     infoMessage.style.color = 'red';
                 }
             });
-            
+
             // Drehung ein/aus
             rotateToggleButton.addEventListener('click', function() {
                 isAutoRotateEnabled = !isAutoRotateEnabled;
                 modelViewer.autoRotate = isAutoRotateEnabled;
                 rotateToggleButton.textContent = isAutoRotateEnabled ? 'Drehung aus' : 'Drehung ein';
             });
-            
+
             // Kamera zurücksetzen
             resetCameraButton.addEventListener('click', function() {
                 modelViewer.cameraOrbit = '0deg 75deg 105%';
                 modelViewer.fieldOfView = '30deg';
             });
-            
-            // Prüfen, ob AR verfügbar ist
+
+
+            // QR-Code generieren
+            generateQRButton.addEventListener('click', function() {
+                generateQRCode();
+            });
+
+            function generateQRCode() {
+                if (!modelViewer.src) {
+                    infoMessage.textContent = 'Bitte wählen Sie zuerst ein Modell aus.';
+                    infoMessage.style.color = 'red';
+                    return;
+                }
+
+                // URL erstellen.  WICHTIG:  Verwende absolute URLs.
+                let modelURL;
+                if (modelViewer.src.startsWith("http")) {
+                    modelURL = modelViewer.src;  // Absolute URL bereits vorhanden
+                } else {
+                     // Relative URL in absolute URL umwandeln
+                    modelURL = new URL(modelViewer.src, window.location.href).href;
+                }
+
+                const viewerURL = `https://modelviewer.dev/editor/?model=${encodeURIComponent(modelURL)}`; //Verwendung der Model-Viewer-Editor-URL für universelle Kompatibilität
+                // Lösche alten QR-Code, falls vorhanden
+                clearQRCode();
+
+                // Neuen QR-Code erstellen
+                qrCode = new QRCode(qrCodeDiv, {
+                    text: viewerURL,
+                    width: 200,
+                    height: 200,
+                    colorDark : "#000000",
+                    colorLight : "#ffffff",
+                    correctLevel : QRCode.CorrectLevel.H
+                });
+
+                infoMessage.textContent = "QR-Code generiert. Scannen Sie ihn mit Ihrem Smartphone!";
+                infoMessage.style.color = 'green';
+            }
+
+            function clearQRCode() {
+                if (qrCode) {
+                    qrCode.clear(); // Löscht den QR-Code aus dem DOM
+                    qrCode = null;  // Setze qrCode zurück
+                }
+                 qrCodeDiv.innerHTML = ''; // Entfernt alle Child-Elemente (falls clear nicht funktioniert)
+            }
+
+             // AR-Verfügbarkeit prüfen
             if (!modelViewer.canActivateAR) {
                 arButton.disabled = true;
                 arButton.textContent = 'AR nicht verfügbar';
