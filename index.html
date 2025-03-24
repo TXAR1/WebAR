@@ -46,7 +46,7 @@
             gap: 10px;
         }
         
-        .file-upload, .drive-url {
+        .file-upload {
             margin-bottom: 10px;
             padding: 15px;
             background-color: white;
@@ -75,41 +75,6 @@
             background-color: #3367d6;
         }
         
-        input[type="text"] {
-            width: 100%;
-            padding: 10px;
-            margin-bottom: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            box-sizing: border-box;
-        }
-        
-        .tab-container {
-            display: flex;
-            margin-bottom: 10px;
-        }
-        
-        .tab {
-            padding: 10px 20px;
-            background-color: #ddd;
-            cursor: pointer;
-            border-radius: 4px 4px 0 0;
-            margin-right: 5px;
-        }
-        
-        .tab.active {
-            background-color: white;
-            font-weight: bold;
-        }
-        
-        .tab-content {
-            display: none;
-        }
-        
-        .tab-content.active {
-            display: block;
-        }
-        
         #info-message {
             padding: 10px;
             background-color: #fafafa;
@@ -123,11 +88,11 @@
     <div class="container">
         <div class="header">
             <h1>3D AR Model Viewer</h1>
-            <p>Laden Sie Ihre GLB/GLTF 3D-Modelle und betrachten Sie sie in AR</p>
+            <p>Vorgeladenes 3D-Modell aus Google Drive</p>
         </div>
         
         <div class="model-container">
-            <!-- Model-Viewer Komponente -->
+            <!-- Model-Viewer Komponente mit voreingestelltem src-Attribut -->
             <model-viewer 
                 id="model-viewer"
                 camera-controls
@@ -137,34 +102,18 @@
                 shadow-intensity="1"
                 shadow-softness="1"
                 exposure="1"
-                alt="3D Modell">
+                alt="3D Modell"
+                src="https://drive.google.com/uc?export=download&id=1_ECylCTdArUYuJcBjXoAjLiHQGeeuwni">
+                <!-- Ersetzen Sie IHRE_GOOGLE_DRIVE_ID mit Ihrer tatsächlichen Google Drive Datei-ID -->
             </model-viewer>
         </div>
         
         <div class="controls">
-            <div class="tab-container">
-                <div class="tab active" data-tab="file-upload">Datei hochladen</div>
-                <div class="tab" data-tab="drive-url">Google Drive URL</div>
+            <div class="file-upload">
+                <input type="file" id="file-input" accept=".glb,.gltf">
+                <button id="load-model">Anderes Modell laden</button>
+                <div id="info-message">Das Standard-Modell wird automatisch geladen. Sie können auch ein eigenes Modell hochladen.</div>
             </div>
-            
-            <div class="tab-content active" id="file-upload">
-                <div class="file-upload">
-                    <input type="file" id="file-input" accept=".glb,.gltf">
-                    <button id="load-model">Modell laden</button>
-                </div>
-            </div>
-            
-            <div class="tab-content" id="drive-url">
-                <div class="drive-url">
-                    <input type="text" id="drive-url-input" placeholder="Google Drive Freigabelink einfügen">
-                    <button id="load-drive-model">Von Google Drive laden</button>
-                    <div class="info">
-                        <p><small>Hinweis: Stellen Sie sicher, dass die Datei in Google Drive für jeden zugänglich ist (Link-Freigabe).</small></p>
-                    </div>
-                </div>
-            </div>
-            
-            <div id="info-message">Wählen Sie eine GLB oder GLTF Datei aus oder geben Sie eine Google Drive URL ein</div>
             
             <div class="buttons">
                 <button id="ar-button">In AR anzeigen</button>
@@ -179,30 +128,12 @@
             const modelViewer = document.getElementById('model-viewer');
             const fileInput = document.getElementById('file-input');
             const loadModelButton = document.getElementById('load-model');
-            const driveUrlInput = document.getElementById('drive-url-input');
-            const loadDriveModelButton = document.getElementById('load-drive-model');
             const arButton = document.getElementById('ar-button');
             const rotateToggleButton = document.getElementById('rotate-toggle');
             const resetCameraButton = document.getElementById('reset-camera');
             const infoMessage = document.getElementById('info-message');
-            const tabs = document.querySelectorAll('.tab');
-            const tabContents = document.querySelectorAll('.tab-content');
             
             let isAutoRotateEnabled = true;
-            
-            // Tabs-Funktionalität
-            tabs.forEach(tab => {
-                tab.addEventListener('click', () => {
-                    // Alle Tabs deaktivieren
-                    tabs.forEach(t => t.classList.remove('active'));
-                    tabContents.forEach(c => c.classList.remove('active'));
-                    
-                    // Ausgewählten Tab aktivieren
-                    tab.classList.add('active');
-                    const tabId = tab.getAttribute('data-tab');
-                    document.getElementById(tabId).classList.add('active');
-                });
-            });
             
             // Event-Listener für AR-Check
             modelViewer.addEventListener('ar-status', (event) => {
@@ -212,85 +143,29 @@
                 }
             });
             
-            // Google Drive URL konvertieren
-            function convertGoogleDriveUrl(url) {
-                // Prüfen ob es ein Freigabelink ist
-                if (url.includes('drive.google.com/file/d/')) {
-                    // ID aus URL extrahieren
-                    const match = url.match(/\/file\/d\/([^\/]+)/);
-                    if (match && match[1]) {
-                        const fileId = match[1];
-                        return `https://drive.google.com/uc?export=download&id=${fileId}`;
-                    }
-                } 
-                // Prüfen ob es eine URL mit ID-Parameter ist
-                else if (url.includes('drive.google.com/open?id=')) {
-                    const match = url.match(/[?&]id=([^&]+)/);
-                    if (match && match[1]) {
-                        const fileId = match[1];
-                        return `https://drive.google.com/uc?export=download&id=${fileId}`;
-                    }
-                }
-                // Bereits in direktem Format
-                else if (url.includes('drive.google.com/uc?export=')) {
-                    return url;
-                }
-                
-                // Wenn die URL nicht erkannt wurde
-                return null;
-            }
+            // Event-Listener für erfolgreiche Modell-Ladung
+            modelViewer.addEventListener('load', () => {
+                infoMessage.textContent = 'Modell erfolgreich geladen! Verwenden Sie die Buttons unten für weitere Optionen.';
+                infoMessage.style.color = 'green';
+            });
             
-            // Modell über Datei-Upload laden
+            // Event-Listener für Lade-Fehler
+            modelViewer.addEventListener('error', () => {
+                infoMessage.textContent = 'Fehler beim Laden des Modells. Bitte prüfen Sie den Google Drive Link.';
+                infoMessage.style.color = 'red';
+            });
+            
+            // Modell laden über Datei-Upload
             loadModelButton.addEventListener('click', function() {
                 const file = fileInput.files[0];
                 
                 if (file) {
                     const objectURL = URL.createObjectURL(file);
                     modelViewer.src = objectURL;
-                    infoMessage.textContent = 'Modell geladen! Verwenden Sie die Buttons unten für weitere Optionen.';
+                    infoMessage.textContent = 'Neues Modell geladen! Verwenden Sie die Buttons unten für weitere Optionen.';
                     infoMessage.style.color = 'green';
-                    
-                    // AR-Button aktivieren
-                    arButton.disabled = false;
                 } else {
                     infoMessage.textContent = 'Bitte wählen Sie eine 3D-Modelldatei aus (.glb oder .gltf)';
-                    infoMessage.style.color = 'red';
-                }
-            });
-            
-            // Modell über Google Drive laden
-            loadDriveModelButton.addEventListener('click', function() {
-                const driveUrl = driveUrlInput.value.trim();
-                
-                if (driveUrl) {
-                    const directUrl = convertGoogleDriveUrl(driveUrl);
-                    
-                    if (directUrl) {
-                        infoMessage.textContent = 'Lade Modell von Google Drive...';
-                        
-                        // CORS-Header hinzufügen durch einen Proxy
-                        // Achtung: Für eine Produktionsumgebung sollten Sie einen eigenen Proxy verwenden
-                        const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
-                        
-                        // Modell laden
-                        modelViewer.src = directUrl;
-                        infoMessage.textContent = 'Modell geladen! Verwenden Sie die Buttons unten für weitere Optionen.';
-                        infoMessage.style.color = 'green';
-                        
-                        // AR-Button aktivieren
-                        arButton.disabled = false;
-                        
-                        // Fehlerbehandlung für das Laden
-                        modelViewer.addEventListener('error', () => {
-                            infoMessage.textContent = 'Fehler beim Laden des Modells. Stellen Sie sicher, dass die Datei öffentlich zugänglich ist.';
-                            infoMessage.style.color = 'red';
-                        });
-                    } else {
-                        infoMessage.textContent = 'Ungültiger Google Drive Link. Bitte einen gültigen Freigabelink verwenden.';
-                        infoMessage.style.color = 'red';
-                    }
-                } else {
-                    infoMessage.textContent = 'Bitte geben Sie eine Google Drive URL ein.';
                     infoMessage.style.color = 'red';
                 }
             });
@@ -325,23 +200,6 @@
                 arButton.textContent = 'AR nicht verfügbar';
                 infoMessage.textContent = 'AR ist auf diesem Gerät oder Browser nicht verfügbar.';
             }
-
-            // Automatisch ein Modell von Google Drive laden, wenn ein URL-Parameter vorhanden ist
-            function loadModelFromUrlParam() {
-                const urlParams = new URLSearchParams(window.location.search);
-                const modelId = urlParams.get('modelId');
-                
-                if (modelId) {
-                    const driveUrl = `https://drive.google.com/uc?export=download&id=${modelId}`;
-                    modelViewer.src = driveUrl;
-                    infoMessage.textContent = 'Modell aus URL geladen!';
-                    infoMessage.style.color = 'green';
-                    arButton.disabled = false;
-                }
-            }
-            
-            // Beim Laden der Seite ausführen
-            loadModelFromUrlParam();
         });
     </script>
 </body>
