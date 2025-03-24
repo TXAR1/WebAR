@@ -7,25 +7,24 @@
     <!-- Model-Viewer Bibliothek importieren -->
     <script type="module" src="https://cdnjs.cloudflare.com/ajax/libs/model-viewer/3.3.0/model-viewer.min.js"></script>
     <style>
-        /* ... (Dein CSS bleibt unverändert) ... */
         body {
             margin: 0;
             padding: 0;
             font-family: Arial, sans-serif;
             background-color: #f0f0f0;
         }
-
+        
         .container {
             max-width: 800px;
             margin: 0 auto;
             padding: 20px;
         }
-
+        
         .header {
             text-align: center;
             margin-bottom: 20px;
         }
-
+        
         .model-container {
             width: 100%;
             height: 500px;
@@ -34,34 +33,34 @@
             overflow: hidden;
             margin-bottom: 20px;
         }
-
+        
         model-viewer {
             width: 100%;
             height: 100%;
             background-color: #e0e0e0;
         }
-
+        
         .controls {
             display: flex;
             flex-direction: column;
             gap: 10px;
         }
-
+        
         .file-upload {
             margin-bottom: 10px;
             padding: 15px;
             background-color: white;
             border-radius: 8px;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
-
+        
         .buttons {
             display: flex;
             gap: 10px;
             justify-content: center;
             flex-wrap: wrap;
         }
-
+        
         button {
             padding: 12px 20px;
             background-color: #4285F4;
@@ -71,11 +70,11 @@
             cursor: pointer;
             font-weight: bold;
         }
-
+        
         button:hover {
             background-color: #3367d6;
         }
-
+        
         #info-message {
             padding: 10px;
             background-color: #fafafa;
@@ -83,53 +82,19 @@
             margin-top: 10px;
             text-align: center;
         }
-
-        .model-selection {
-            display: flex;
-            gap: 10px;
-            justify-content: center;
-            margin-bottom: 15px;
-            flex-wrap: wrap;
-        }
-
-        .model-button {
-            padding: 10px 15px;
-            background-color: #34A853;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-weight: bold;
-        }
-
-        .model-button:hover {
-            background-color: #2E8B57;
-        }
-
-        .model-button.active {
-            background-color: #1E5631;
-            box-shadow: 0 0 5px rgba(0, 0, 0, 0.3);
-        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
             <h1>3D AR Model Viewer</h1>
-            <p>Mein eigenes 3D-Modell in AR anzeigen</p>
+            <p>Laden Sie Ihre GLB/GLTF 3D-Modelle und betrachten Sie sie in AR</p>
         </div>
-
-        <div class="model-selection">
-            <button class="model-button active" data-model="mein-modell">Mein Modell (Google Drive)</button>
-            <button class="model-button" data-model="astronaut">Astronaut</button>
-            <button class="model-button" data-model="chair">Stuhl</button>
-        </div>
-
+        
         <div class="model-container">
             <!-- Model-Viewer Komponente -->
             <model-viewer 
                 id="model-viewer"
-                src=""  <!-- Leer lassen, wird dynamisch gesetzt -->
                 camera-controls
                 auto-rotate
                 ar
@@ -137,133 +102,97 @@
                 shadow-intensity="1"
                 shadow-softness="1"
                 exposure="1"
-                alt="Mein 3D Modell">
+                alt="3D Modell">
             </model-viewer>
         </div>
-
+        
         <div class="controls">
             <div class="file-upload">
-              <!-- Kein file Input mehr für lokales laden, da du es über GDrive willst -->
-              <!--  <input type="file" id="file-input" accept=".glb,.gltf">
-                <button id="load-model">Anderes Modell laden</button> -->
-                <div id="info-message">Eigenes Modell von Google Drive. Verwenden Sie die Buttons unten für weitere Optionen.</div>
+                <input type="file" id="file-input" accept=".glb,.gltf">
+                <button id="load-model">Modell laden</button>
+                <div id="info-message">Wählen Sie eine GLB oder GLTF Datei aus und klicken Sie auf "Modell laden"</div>
             </div>
-
+            
             <div class="buttons">
                 <button id="ar-button">In AR anzeigen</button>
-                <button id="rotate-toggle">Drehung aus</button>
+                <button id="rotate-toggle">Drehung ein/aus</button>
                 <button id="reset-camera">Kamera zurücksetzen</button>
             </div>
         </div>
     </div>
-
+    
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const modelViewer = document.getElementById('model-viewer');
-            //const fileInput = document.getElementById('file-input'); // Auskommentiert
-            //const loadModelButton = document.getElementById('load-model'); // Auskommentiert
+            const fileInput = document.getElementById('file-input');
+            const loadModelButton = document.getElementById('load-model');
             const arButton = document.getElementById('ar-button');
             const rotateToggleButton = document.getElementById('rotate-toggle');
             const resetCameraButton = document.getElementById('reset-camera');
             const infoMessage = document.getElementById('info-message');
-            const modelButtons = document.querySelectorAll('.model-button');
-
+            
             let isAutoRotateEnabled = true;
-
-            // Funktion zum Umwandeln des Google Drive Links
-            function convertGoogleDriveLink(originalLink) {
-                // Beispiel Original-Link: https://drive.google.com/file/d/1234567890abcdef/view?usp=sharing
-                const fileId = originalLink.match(/\/file\/d\/(.+)\/view/)[1]; // Extrahiert die ID
-              //  const directLink = `https://drive.google.com/uc?export=download&id=${fileId}`; // Alte, nicht mehr funktionierende Methode
-                const directLink = `https://lh3.googleusercontent.com/d/${fileId}`;  //Versuche googleusercontent
-                return directLink;
-            }
-
-
-            // Vorgeladene Modelle
-            const preloadedModels = {
-                // Ersetze DIESEN LINK mit dem "Link freigeben" Link von DEINEM Google Drive Modell.
-                "mein-modell": "https://drive.google.com/file/d/1_ECylCTdArUYuJcBjXoAjLiHQGeeuwni/view?usp=sharing", // BEISPIEL LINK!!!
-                "astronaut": "https://modelviewer.dev/shared-assets/models/Astronaut.glb",
-                "chair": "https://modelviewer.dev/shared-assets/models/chair.glb"
-            };
-
-
-             // Event-Listener für AR-Check
+            
+            // Beispiel-Modell laden (Standardmäßig angezeigt, falls der Benutzer keins hochlädt)
+            // Sie können diesen Link auf ein anderes Standard-Modell ändern oder entfernen
+            //modelViewer.src = "https://modelviewer.dev/shared-assets/models/Astronaut.glb";
+            
+            // Event-Listener für AR-Check
             modelViewer.addEventListener('ar-status', (event) => {
                 if (event.detail.status === 'failed') {
                     infoMessage.textContent = 'AR nicht verfügbar auf diesem Gerät oder Browser.';
                     infoMessage.style.color = 'red';
                 }
             });
-
-
-            // Model-Button Eventlistener hinzufügen
-            modelButtons.forEach(button => {
-                button.addEventListener('click', function() {
-                    const modelType = this.getAttribute('data-model');
-
-                    // Aktiven Button markieren
-                    modelButtons.forEach(btn => btn.classList.remove('active'));
-                    this.classList.add('active');
-
-                    // Modell laden
-                   if (preloadedModels[modelType]) {
-                        let modelSrc = preloadedModels[modelType];
-                        if (modelType === 'mein-modell') {
-                            // Google Drive Link konvertieren
-                            modelSrc = convertGoogleDriveLink(modelSrc);
-                            infoMessage.textContent = 'Eigenes Modell von Google Drive wird geladen...';
-                            infoMessage.style.color = 'orange'; // Hinweis, dass es laden kann.
-                        } else {
-                          infoMessage.textContent = `${modelType.charAt(0).toUpperCase() + modelType.slice(1)}-Modell geladen!`;
-                          infoMessage.style.color = 'green';
-                        }
-                        modelViewer.src = modelSrc;
-
-                    }
-                });
+            
+            // Modell laden
+            loadModelButton.addEventListener('click', function() {
+                const file = fileInput.files[0];
+                
+                if (file) {
+                    const objectURL = URL.createObjectURL(file);
+                    modelViewer.src = objectURL;
+                    infoMessage.textContent = 'Modell geladen! Verwenden Sie die Buttons unten für weitere Optionen.';
+                    infoMessage.style.color = 'green';
+                    
+                    // AR-Button aktivieren
+                    arButton.disabled = false;
+                } else {
+                    infoMessage.textContent = 'Bitte wählen Sie eine 3D-Modelldatei aus (.glb oder .gltf)';
+                    infoMessage.style.color = 'red';
+                }
             });
-
-            // Kein lokaler Upload mehr
-            /*
-            loadModelButton.addEventListener('click', function() { ... });
-            */
-
-
+            
             // AR-Button
             arButton.addEventListener('click', function() {
                 if (modelViewer.src) {
+                    // activateAR ist eine spezielle Methode von model-viewer
                     modelViewer.activateAR();
                 } else {
                     infoMessage.textContent = 'Bitte laden Sie zuerst ein Modell.';
                     infoMessage.style.color = 'red';
                 }
             });
-
+            
             // Drehung ein/aus
             rotateToggleButton.addEventListener('click', function() {
                 isAutoRotateEnabled = !isAutoRotateEnabled;
                 modelViewer.autoRotate = isAutoRotateEnabled;
                 rotateToggleButton.textContent = isAutoRotateEnabled ? 'Drehung aus' : 'Drehung ein';
             });
-
+            
             // Kamera zurücksetzen
             resetCameraButton.addEventListener('click', function() {
                 modelViewer.cameraOrbit = '0deg 75deg 105%';
                 modelViewer.fieldOfView = '30deg';
             });
-
+            
             // Prüfen, ob AR verfügbar ist
             if (!modelViewer.canActivateAR) {
                 arButton.disabled = true;
                 arButton.textContent = 'AR nicht verfügbar';
                 infoMessage.textContent = 'AR ist auf diesem Gerät oder Browser nicht verfügbar.';
             }
-
-
-            // Modell beim Laden der Seite laden (optional, wenn du ein Standardmodell haben möchtest)
-           // modelViewer.src = convertGoogleDriveLink(preloadedModels["mein-modell"]);
         });
     </script>
 </body>
