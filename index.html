@@ -3,15 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D AR Model Viewer mit Debugging</title>
-    <!-- Model-Viewer Bibliothek importieren -->
+    <title>3D AR Model Viewer</title>
     <script type="module" src="https://cdnjs.cloudflare.com/ajax/libs/model-viewer/3.3.0/model-viewer.min.js"></script>
-    <!-- JSZip Bibliothek für ZIP-Unterstützung -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
         body {
             margin: 0;
-            padding: 20px;
+            padding: 0;
             font-family: Arial, sans-serif;
             background-color: #f0f0f0;
         }
@@ -19,10 +16,12 @@
         .container {
             max-width: 800px;
             margin: 0 auto;
-            background-color: white;
             padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
         }
         
         .model-container {
@@ -40,45 +39,56 @@
             background-color: #e0e0e0;
         }
         
-        #debug-info {
-            background-color: #f8f8f8;
-            border: 1px solid #ddd;
-            padding: 10px;
-            margin-top: 10px;
-            white-space: pre-wrap;
-            word-wrap: break-word;
-            font-family: monospace;
-            max-height: 200px;
-            overflow-y: auto;
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
         }
         
-        input[type="file"] {
+        .file-upload {
             margin-bottom: 10px;
-            width: 100%;
+            padding: 15px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        .buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
         }
         
         button {
-            margin: 5px;
-            padding: 10px 15px;
+            padding: 12px 20px;
             background-color: #4285F4;
             color: white;
             border: none;
             border-radius: 4px;
             cursor: pointer;
+            font-weight: bold;
         }
         
-        button:disabled {
-            background-color: #cccccc;
-            cursor: not-allowed;
+        button:hover {
+            background-color: #3367d6;
+        }
+        
+        #info-message {
+            padding: 10px;
+            background-color: #fafafa;
+            border-radius: 4px;
+            margin-top: 10px;
+            text-align: center;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>3D Modell Viewer</h1>
-        
-        <input type="file" id="file-input" accept=".glb,.gltf,.zip">
-        <button id="load-model">Modell laden</button>
+        <div class="header">
+            <h1>3D AR Model Viewer</h1>
+            <p>Laden Sie Ihre GLB/GLTF 3D-Modelle und betrachten Sie sie in AR</p>
+        </div>
         
         <div class="model-container">
             <model-viewer 
@@ -88,95 +98,98 @@
                 ar
                 ar-modes="webxr scene-viewer quick-look"
                 shadow-intensity="1"
+                shadow-softness="1"
                 exposure="1"
                 alt="3D Modell">
             </model-viewer>
         </div>
         
-        <div id="debug-info"></div>
-    </div>
-
-    <script>
-        const modelViewer = document.getElementById('model-viewer');
-        const fileInput = document.getElementById('file-input');
-        const loadModelButton = document.getElementById('load-model');
-        const debugInfo = document.getElementById('debug-info');
-
-        function log(message) {
-            console.log(message);
-            debugInfo.textContent += message + '\n';
-        }
-
-        async function processFile(file) {
-            log(`Dateiname: ${file.name}`);
-            log(`Dateityp: ${file.type}`);
-            log(`Dateigröße: ${file.size} Bytes`);
-
-            try {
-                if (file.name.toLowerCase().endsWith('.zip')) {
-                    // ZIP-Datei verarbeiten
-                    const zip = await JSZip.loadAsync(file);
-                    log('ZIP-Datei erfolgreich geladen');
-                    
-                    // Alle Dateien im ZIP auflisten
-                    Object.keys(zip.files).forEach(filename => {
-                        log(`Datei im ZIP: ${filename}`);
-                    });
-
-                    // Suchen nach GLTF oder GLB Dateien
-                    const modelFiles = Object.values(zip.files).filter(
-                        f => f.name.toLowerCase().endsWith('.gltf') || 
-                             f.name.toLowerCase().endsWith('.glb')
-                    );
-
-                    if (modelFiles.length === 0) {
-                        throw new Error('Keine 3D-Modelldatei im ZIP gefunden');
-                    }
-
-                    // Erste Modelldatei extrahieren
-                    const modelFile = modelFiles[0];
-                    log(`Gefundene Modelldatei: ${modelFile.name}`);
-
-                    const modelBlob = await modelFile.async('blob');
-                    return URL.createObjectURL(modelBlob);
-
-                } else {
-                    // Direktes Laden von GLTF/GLB
-                    return URL.createObjectURL(file);
-                }
-            } catch (error) {
-                log(`Fehler bei der Verarbeitung: ${error.message}`);
-                throw error;
-            }
-        }
-
-        loadModelButton.addEventListener('click', async function() {
-            // Vorherige Debug-Informationen löschen
-            debugInfo.textContent = '';
+        <div class="controls">
+            <div class="file-upload">
+                <input type="file" id="file-input" accept=".glb,.gltf">
+                <button id="load-model">Modell laden</button>
+                <div id="info-message">Wählen Sie eine GLB oder GLTF Datei aus und klicken Sie auf "Modell laden"</div>
+            </div>
             
-            const file = fileInput.files[0];
-            if (!file) {
-                log('Keine Datei ausgewählt');
-                return;
-            }
-
-            try {
-                const modelUrl = await processFile(file);
-                log(`Model-URL: ${modelUrl}`);
+            <div class="buttons">
+                <button id="ar-button">In AR anzeigen</button>
+                <button id="rotate-toggle">Drehung ein/aus</button>
+                <button id="reset-camera">Kamera zurücksetzen</button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const modelViewer = document.getElementById('model-viewer');
+            const fileInput = document.getElementById('file-input');
+            const loadModelButton = document.getElementById('load-model');
+            const arButton = document.getElementById('ar-button');
+            const rotateToggleButton = document.getElementById('rotate-toggle');
+            const resetCameraButton = document.getElementById('reset-camera');
+            const infoMessage = document.getElementById('info-message');
+            
+            let isAutoRotateEnabled = true;
+            
+            // Beispiel-Modell laden (Standardmäßig angezeigt, falls der Benutzer keins hochlädt)
+            // Sie können diesen Link auf ein anderes Standard-Modell ändern oder entfernen
+            //modelViewer.src = "https://modelviewer.dev/shared-assets/models/Astronaut.glb";
+            
+            // Event-Listener für AR-Check
+            modelViewer.addEventListener('ar-status', (event) => {
+                if (event.detail.status === 'failed') {
+                    infoMessage.textContent = 'AR nicht verfügbar auf diesem Gerät oder Browser.';
+                    infoMessage.style.color = 'red';
+                }
+            });
+            
+            // Modell laden
+            loadModelButton.addEventListener('click', function() {
+                const file = fileInput.files[0];
                 
-                modelViewer.src = modelUrl;
-                
-                // Event-Listener für Ladestatus
-                modelViewer.addEventListener('load', () => {
-                    log('Modell erfolgreich geladen');
-                });
-
-                modelViewer.addEventListener('error', (error) => {
-                    log(`Modelviewer-Fehler: ${error}`);
-                });
-
-            } catch (error) {
-                log(`Fehler: ${error.message}`);
+                if (file) {
+                    const objectURL = URL.createObjectURL(file);
+                    modelViewer.src = objectURL;
+                    infoMessage.textContent = 'Modell geladen! Verwenden Sie die Buttons unten für weitere Optionen.';
+                    infoMessage.style.color = 'green';
+                    
+                    // AR-Button aktivieren
+                    arButton.disabled = false;
+                } else {
+                    infoMessage.textContent = 'Bitte wählen Sie eine 3D-Modelldatei aus (.glb oder .gltf)';
+                    infoMessage.style.color = 'red';
+                }
+            });
+            
+            // AR-Button
+            arButton.addEventListener('click', function() {
+                if (modelViewer.src) {
+                    // activateAR ist eine spezielle Methode von model-viewer
+                    modelViewer.activateAR();
+                } else {
+                    infoMessage.textContent = 'Bitte laden Sie zuerst ein Modell.';
+                    infoMessage.style.color = 'red';
+                }
+            });
+            
+            // Drehung ein/aus
+            rotateToggleButton.addEventListener('click', function() {
+                isAutoRotateEnabled = !isAutoRotateEnabled;
+                modelViewer.autoRotate = isAutoRotateEnabled;
+                rotateToggleButton.textContent = isAutoRotateEnabled ? 'Drehung aus' : 'Drehung ein';
+            });
+            
+            // Kamera zurücksetzen
+            resetCameraButton.addEventListener('click', function() {
+                modelViewer.cameraOrbit = '0deg 75deg 105%';
+                modelViewer.fieldOfView = '30deg';
+            });
+            
+            // Prüfen, ob AR verfügbar ist
+            if (!modelViewer.canActivateAR) {
+                arButton.disabled = true;
+                arButton.textContent = 'AR nicht verfügbar';
+                infoMessage.textContent = 'AR ist auf diesem Gerät oder Browser nicht verfügbar.';
             }
         });
     </script>
