@@ -3,50 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D Modell Viewer mit komplexen GLTF</title>
-    <script type="module" src="https://cdnjs.cloudflare.com/ajax/libs/model-viewer/3.3.0/model-viewer.min.js"></script>
-    <style>
-        body { 
-            font-family: Arial, sans-serif; 
-            max-width: 800px; 
-            margin: 0 auto; 
-            padding: 20px; 
-        }
-        .upload-container {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            margin-bottom: 20px;
-        }
-        #info-message {
-            padding: 10px;
-            background-color: #f0f0f0;
-            border-radius: 5px;
-        }
-        model-viewer {
-            width: 100%;
-            height: 500px;
-            background-color: #f0f0f0;
-        }
-    </style>
-</head>
-<body>
-    <div class="upload-container">
-        <input type="file" id="file-input" accept=".zip" />
-        <button id="load-model">GLTF Modell mit Texturen laden</button>
-        <div id="info-message">Laden Sie eine ZIP-Datei mit Ihrer GLTF-Datei und allen Texturen</div>
-    </div>
-
-    <model-viewer 
-        id="model-viewer"
-        camera-controls <!DOCTYPE html>
-<html lang="de">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D AR Model Viewer</title>
+    <title>3D AR Model Viewer mit ZIP-Unterstützung</title>
     <!-- Model-Viewer Bibliothek importieren -->
     <script type="module" src="https://cdnjs.cloudflare.com/ajax/libs/model-viewer/3.3.0/model-viewer.min.js"></script>
+    <!-- JSZip Bibliothek für ZIP-Unterstützung -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
         body {
             margin: 0;
@@ -116,6 +77,11 @@
             background-color: #3367d6;
         }
         
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        
         #info-message {
             padding: 10px;
             background-color: #fafafa;
@@ -123,20 +89,9 @@
             margin-top: 10px;
             text-align: center;
         }
-
-        .upload-type {
-            display: flex;
-            gap: 10px;
-            justify-content: center;
-            margin-bottom: 15px;
-        }
-
-        .upload-type button {
-            background-color: #34A853;
-        }
-
-        .upload-type button.active {
-            background-color: #1E8E3E;
+        
+        #file-input {
+            margin-bottom: 10px;
         }
     </style>
 </head>
@@ -144,12 +99,7 @@
     <div class="container">
         <div class="header">
             <h1>3D AR Model Viewer</h1>
-            <p>Laden Sie Ihre GLB/GLTF 3D-Modelle und betrachten Sie sie in AR</p>
-        </div>
-
-        <div class="upload-type">
-            <button id="single-file-btn" class="active">Einzelne Datei</button>
-            <button id="zip-file-btn">ZIP-Datei</button>
+            <p>Laden Sie Ihre GLB/GLTF 3D-Modelle (auch als ZIP) und betrachten Sie sie in AR</p>
         </div>
         
         <div class="model-container">
@@ -168,60 +118,29 @@
         </div>
         
         <div class="controls">
-            <div id="single-file-upload" class="file-upload">
-                <input type="file" id="single-file-input" accept=".glb,.gltf">
-                <button id="load-single-model">Modell laden</button>
-                <div id="info-message">Wählen Sie eine GLB oder GLTF Datei aus und klicken Sie auf "Modell laden"</div>
-            </div>
-
-            <div id="zip-file-upload" class="file-upload" style="display:none;">
-                <input type="file" id="zip-file-input" accept=".zip">
-                <button id="load-zip-model">ZIP-Modell laden</button>
-                <div id="zip-info-message">Laden Sie eine ZIP-Datei mit Ihrer GLTF-Datei und allen Texturen</div>
+            <div class="file-upload">
+                <input type="file" id="file-input" accept=".glb,.gltf,.zip">
+                <button id="load-model">Modell laden</button>
+                <div id="info-message">Wählen Sie eine GLB, GLTF oder ZIP-Datei aus und klicken Sie auf "Modell laden"</div>
             </div>
             
             <div class="buttons">
-                <button id="ar-button">In AR anzeigen</button>
-                <button id="rotate-toggle">Drehung ein/aus</button>
+                <button id="ar-button" disabled>In AR anzeigen</button>
+                <button id="rotate-toggle">Drehung aus</button>
                 <button id="reset-camera">Kamera zurücksetzen</button>
             </div>
         </div>
     </div>
     
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const modelViewer = document.getElementById('model-viewer');
-            const singleFileInput = document.getElementById('single-file-input');
-            const zipFileInput = document.getElementById('zip-file-input');
-            const loadSingleModelButton = document.getElementById('load-single-model');
-            const loadZipModelButton = document.getElementById('load-zip-model');
+            const fileInput = document.getElementById('file-input');
+            const loadModelButton = document.getElementById('load-model');
             const arButton = document.getElementById('ar-button');
             const rotateToggleButton = document.getElementById('rotate-toggle');
             const resetCameraButton = document.getElementById('reset-camera');
             const infoMessage = document.getElementById('info-message');
-            const zipInfoMessage = document.getElementById('zip-info-message');
-
-            // Upload Type Switching
-            const singleFileBtn = document.getElementById('single-file-btn');
-            const zipFileBtn = document.getElementById('zip-file-btn');
-            const singleFileUpload = document.getElementById('single-file-upload');
-            const zipFileUpload = document.getElementById('zip-file-upload');
-
-            singleFileBtn.addEventListener('click', () => {
-                singleFileBtn.classList.add('active');
-                zipFileBtn.classList.remove('active');
-                singleFileUpload.style.display = 'block';
-                zipFileUpload.style.display = 'none';
-            });
-
-            zipFileBtn.addEventListener('click', () => {
-                zipFileBtn.classList.add('active');
-                singleFileBtn.classList.remove('active');
-                zipFileUpload.style.display = 'block';
-                singleFileUpload.style.display = 'none';
-            });
             
             let isAutoRotateEnabled = true;
             
@@ -233,97 +152,62 @@
                 }
             });
             
-            // Einzelne Datei laden
-            loadSingleModelButton.addEventListener('click', function() {
-                const file = singleFileInput.files[0];
+            // Modell laden
+            loadModelButton.addEventListener('click', async function() {
+                const file = fileInput.files[0];
                 
                 if (file) {
-                    const fileExtension = file.name.split('.').pop().toLowerCase();
-                    const objectURL = URL.createObjectURL(file);
-                    
-                    // Zusätzliche Prüfung für GLTF
-                    if (fileExtension === 'gltf') {
-                        const reader = new FileReader();
-                        reader.onload = function(e) {
-                            try {
-                                const gltfData = JSON.parse(e.target.result);
-                                if (gltfData.buffers && gltfData.buffers.length > 0) {
-                                    modelViewer.src = objectURL;
-                                    infoMessage.textContent = 'GLTF Modell erfolgreich geladen!';
-                                    infoMessage.style.color = 'green';
-                                } else {
-                                    throw new Error('Ungültiges GLTF-Format');
-                                }
-                            } catch (error) {
-                                infoMessage.textContent = 'Fehler beim Laden des GLTF-Modells.';
-                                infoMessage.style.color = 'red';
-                            }
-                        };
-                        reader.readAsText(file);
-                    } else {
-                        modelViewer.src = objectURL;
-                        infoMessage.textContent = 'Modell geladen! Verwenden Sie die Buttons unten für weitere Optionen.';
-                        infoMessage.style.color = 'green';
-                    }
-                    
-                    arButton.disabled = false;
-                } else {
-                    infoMessage.textContent = 'Bitte wählen Sie eine 3D-Modelldatei aus (.glb oder .gltf)';
-                    infoMessage.style.color = 'red';
-                }
-            });
-
-            // ZIP-Datei laden
-            loadZipModelButton.addEventListener('click', async () => {
-                const file = zipFileInput.files[0];
-                if (!file) {
-                    zipInfoMessage.textContent = 'Bitte wählen Sie eine ZIP-Datei aus';
-                    return;
-                }
-
-                try {
-                    const zipFile = await JSZip.loadAsync(file);
-                    
-                    const gltfFile = Object.values(zipFile.files)
-                        .find(f => f.name.endsWith('.gltf'));
-
-                    if (!gltfFile) {
-                        throw new Error('Keine GLTF-Datei in der ZIP gefunden');
-                    }
-
-                    const gltfContent = await gltfFile.async('text');
-                    const gltfData = JSON.parse(gltfContent);
-
-                    const tempDir = 'model_files/';
-                    
-                    for (const filename in zipFile.files) {
-                        const file = zipFile.files[filename];
-                        const content = await file.async('blob');
-                        const fileURL = URL.createObjectURL(content);
+                    try {
+                        let modelUrl;
                         
-                        gltfContent = gltfContent.replace(
-                            new RegExp(file.name, 'g'), 
-                            fileURL
-                        );
+                        // Überprüfen der Dateiendung
+                        if (file.name.toLowerCase().endsWith('.zip')) {
+                            // ZIP-Datei verarbeiten
+                            const zip = await JSZip.loadAsync(file);
+                            
+                            // Suchen nach GLTF oder GLB Dateien im ZIP
+                            const modelFiles = Object.values(zip.files).filter(
+                                f => f.name.toLowerCase().endsWith('.gltf') || 
+                                     f.name.toLowerCase().endsWith('.glb')
+                            );
+                            
+                            if (modelFiles.length === 0) {
+                                throw new Error('Keine GLTF oder GLB Datei im ZIP gefunden');
+                            }
+                            
+                            // Erste gefundene Modelldatei extrahieren
+                            const modelFile = modelFiles[0];
+                            const modelBlob = await modelFile.async('blob');
+                            modelUrl = URL.createObjectURL(modelBlob);
+                            
+                            // Zusätzliche Ressourcen wie Texturen könnten hier behandelt werden
+                            infoMessage.textContent = `Modell aus ZIP geladen: ${modelFile.name}`;
+                        } else {
+                            // Direktes Laden von GLTF/GLB
+                            modelUrl = URL.createObjectURL(file);
+                            infoMessage.textContent = 'Modell geladen! Verwenden Sie die Buttons unten für weitere Optionen.';
+                        }
+                        
+                        modelViewer.src = modelUrl;
+                        infoMessage.style.color = 'green';
+                        
+                        // AR-Button aktivieren
+                        arButton.disabled = false;
+                    } catch (error) {
+                        infoMessage.textContent = `Fehler beim Laden: ${error.message}`;
+                        infoMessage.style.color = 'red';
+                        console.error(error);
                     }
-
-                    const modifiedGltf = new Blob([gltfContent], {type: 'model/gltf+json'});
-                    const gltfURL = URL.createObjectURL(modifiedGltf);
-
-                    modelViewer.src = gltfURL;
-                    zipInfoMessage.textContent = 'Modell erfolgreich geladen!';
-                    zipInfoMessage.style.color = 'green';
-
-                } catch (error) {
-                    console.error(error);
-                    zipInfoMessage.textContent = 'Fehler beim Laden: ' + error.message;
-                    zipInfoMessage.style.color = 'red';
+                } else {
+                    infoMessage.textContent = 'Bitte wählen Sie eine 3D-Modelldatei aus (.glb, .gltf oder .zip)';
+                    infoMessage.style.color = 'red';
                 }
             });
             
             // AR-Button
             arButton.addEventListener('click', function() {
                 if (modelViewer.src) {
+                    // activateAR ist eine spezielle Methode von model-viewer
                     modelViewer.activateAR();
                 } else {
                     infoMessage.textContent = 'Bitte laden Sie zuerst ein Modell.';
