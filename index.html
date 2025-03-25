@@ -133,10 +133,6 @@
             
             let isAutoRotateEnabled = true;
             
-            // Beispiel-Modell laden (Standardmäßig angezeigt, falls der Benutzer keins hochlädt)
-            // Sie können diesen Link auf ein anderes Standard-Modell ändern oder entfernen
-            //modelViewer.src = "https://modelviewer.dev/shared-assets/models/Astronaut.glb";
-            
             // Event-Listener für AR-Check
             modelViewer.addEventListener('ar-status', (event) => {
                 if (event.detail.status === 'failed') {
@@ -145,15 +141,41 @@
                 }
             });
             
-            // Modell laden
+            // Modell laden mit verbesserte Unterstützung für GLTF
             loadModelButton.addEventListener('click', function() {
                 const file = fileInput.files[0];
                 
                 if (file) {
+                    const fileExtension = file.name.split('.').pop().toLowerCase();
                     const objectURL = URL.createObjectURL(file);
-                    modelViewer.src = objectURL;
-                    infoMessage.textContent = 'Modell geladen! Verwenden Sie die Buttons unten für weitere Optionen.';
-                    infoMessage.style.color = 'green';
+                    
+                    // Zusätzliche Prüfung für GLTF
+                    if (fileExtension === 'gltf') {
+                        // Überprüfen, ob ein Binärdaten-File existiert
+                        const reader = new FileReader();
+                        reader.onload = function(e) {
+                            try {
+                                const gltfData = JSON.parse(e.target.result);
+                                if (gltfData.buffers && gltfData.buffers.length > 0) {
+                                    // Zusätzliche Validierung für GLTF
+                                    modelViewer.src = objectURL;
+                                    infoMessage.textContent = 'GLTF Modell erfolgreich geladen!';
+                                    infoMessage.style.color = 'green';
+                                } else {
+                                    throw new Error('Ungültiges GLTF-Format');
+                                }
+                            } catch (error) {
+                                infoMessage.textContent = 'Fehler beim Laden des GLTF-Modells. Stellen Sie sicher, dass es ein gültiges GLTF-Format ist.';
+                                infoMessage.style.color = 'red';
+                            }
+                        };
+                        reader.readAsText(file);
+                    } else {
+                        // Für GLB und andere unterstützte Formate
+                        modelViewer.src = objectURL;
+                        infoMessage.textContent = 'Modell geladen! Verwenden Sie die Buttons unten für weitere Optionen.';
+                        infoMessage.style.color = 'green';
+                    }
                     
                     // AR-Button aktivieren
                     arButton.disabled = false;
@@ -196,5 +218,4 @@
         });
     </script>
 </body>
-</html>
 </html>
